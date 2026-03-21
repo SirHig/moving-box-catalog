@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Box } from './types';
 
@@ -8,6 +9,19 @@ interface BoxCardProps {
 }
 
 export default function BoxCard({ box, onDelete, onUpdate }: BoxCardProps) {
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(box.aiDescription);
+
+  const handleSaveDescription = () => {
+    onUpdate(box.id, { aiDescription: descriptionDraft });
+    setEditingDescription(false);
+  };
+
+  const handleCancelDescription = () => {
+    setDescriptionDraft(box.aiDescription);
+    setEditingDescription(false);
+  };
+
   const handleToggleFragile = () => {
     onUpdate(box.id, { isFragile: !box.isFragile });
   };
@@ -73,8 +87,28 @@ export default function BoxCard({ box, onDelete, onUpdate }: BoxCardProps) {
       {box.room && <p className="box-room">📍 {box.room}</p>}
 
       <div className="box-description">
-        <strong>Contents:</strong>
-        <p>{box.aiDescription}</p>
+        <div className="description-header">
+          <strong>Contents:</strong>
+          {!editingDescription && (
+            <button onClick={() => setEditingDescription(true)} className="btn-edit-desc">✏️</button>
+          )}
+        </div>
+        {editingDescription ? (
+          <div className="description-edit">
+            <textarea
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              rows={4}
+              className="description-textarea"
+            />
+            <div className="description-edit-actions">
+              <button onClick={handleSaveDescription} className="btn-primary btn-small">Save</button>
+              <button onClick={handleCancelDescription} className="btn-secondary btn-small">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <p>{box.aiDescription}</p>
+        )}
       </div>
 
       <div className="box-qr" id={`qr-${box.id}`}>

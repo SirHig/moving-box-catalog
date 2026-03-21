@@ -7,12 +7,14 @@ interface CameraCaptureProps {
 
 export default function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setCapturedFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -22,12 +24,13 @@ export default function CameraCapture({ onCapture, onCancel }: CameraCaptureProp
   };
 
   const handleConfirm = () => {
-    if (!capturedImage || !fileInputRef.current?.files?.[0]) return;
-    onCapture(capturedImage, fileInputRef.current.files[0]);
+    if (!capturedImage || !capturedFile) return;
+    onCapture(capturedImage, capturedFile);
   };
 
   const handleRetake = () => {
     setCapturedImage(null);
+    setCapturedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }

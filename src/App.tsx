@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
-import BoxCard from './BoxCard';
+import BoxListItem from './BoxListItem';
+import BoxDetailModal from './BoxDetailModal';
 import QRScanner from './QRScanner';
 import LabelGenerator from './LabelGenerator';
 import type { Box } from './types';
@@ -20,6 +21,7 @@ function App() {
   const [showScanner, setShowScanner] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showLabelGenerator, setShowLabelGenerator] = useState(false);
+  const [selectedBox, setSelectedBox] = useState<Box | null>(null);
   const [currentBoxNumber, setCurrentBoxNumber] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,15 +86,27 @@ function App() {
       return;
     }
 
+    // Check for duplicate box number
+    const existingBox = boxes.find(b => b.boxNumber === currentBoxNumber);
+    if (existingBox) {
+      setError(`Box #${currentBoxNumber} already exists. Please delete the old one first or use a different box number.`);
+      setShowCamera(false);
+      setCurrentBoxNumber(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setShowCamera(false);
       setError(null);
 
-      // Upload image to Firebase Storage
-      const imageUrl = await uploadImage(blob, currentBoxNumber);
+      // Compress image before upload
+      const compressedBlob = await compressImage(blob);
 
-      // Analyze image with OpenAI
+      // Upload image to Firebase Storage
+      const imageUrl = await uploadImage(compressedBlob, currentBoxNumber);
+
+      // Analyze image with OpenAI (use original for better AI analysis)
       const aiDescription = await analyzeImage(imageDataUrl);
 
       // Save to Firestore
@@ -116,6 +130,62 @@ function App() {
     }
   };
 
+  const compressImage = async (blob: Blob): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(blob);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        
+        // Calculate new dimensions (max 1024px on longest side)
+        const maxSize = 1024;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height && width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+        
+        // Create canvas and compress
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (compressedBlob) => {
+            if (compressedBlob) {
+              resolve(compressedBlob);
+            } else {
+              reject(new Error('Failed to compress image'));
+            }
+          },
+          'image/jpeg',
+          0.85 // 85% quality
+        );
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = objectUrl;
+    });
+  };
+
   const handleUpdateBox = async (id: string, updates: Partial<Box>) => {
     try {
       await updateBox(id, updates);
@@ -127,8 +197,6 @@ function App() {
   };
 
   const handleDeleteBox = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this box?')) return;
-    
     try {
       await deleteBox(id);
       await loadBoxes();
@@ -138,10 +206,18 @@ function App() {
     }
   };
 
+  const handleBoxClick = (box: Box) => {
+    setSelectedBox(box);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedBox(null);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>📦 Moving Box Catalog</h1>
+        <h1>📦 Moving Box Catalog 📦</h1>
         <p>{boxes.length} box{boxes.length !== 1 ? 'es' : ''} cataloged</p>
         <button 
           onClick={() => setShowLabelGenerator(true)}
@@ -194,6 +270,15 @@ function App() {
         </div>
       )}
 
+      {selectedBox && (
+        <BoxDetailModal
+          box={selectedBox}
+          onClose={handleCloseDetail}
+          onUpdate={handleUpdateBox}
+          onDelete={handleDeleteBox}
+        />
+      )}
+
       <div className="controls">
         <div className="search-bar">
           <input
@@ -227,13 +312,12 @@ function App() {
         </div>
       </div>
 
-      <div className="box-grid">
+      <div className="box-list">
         {filteredBoxes.map((box) => (
-          <BoxCard
+          <BoxListItem
             key={box.id}
             box={box}
-            onUpdate={handleUpdateBox}
-            onDelete={handleDeleteBox}
+            onClick={() => handleBoxClick(box)}
           />
         ))}
 
@@ -254,7 +338,8 @@ function App() {
         disabled={loading}
         title="Scan box label QR code"
       >
-        📷 Catalog Box
+        <span>📷</span>
+        <span>Catalog Box</span>
       </button>
     </div>
   );

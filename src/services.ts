@@ -54,10 +54,16 @@ export async function analyzeImage(imageDataUrl: string): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error: ${response.statusText} - ${errorText}`);
   }
 
   const data = await response.json();
+  
+  if (!data.choices?.[0]?.message?.content) {
+    throw new Error('OpenAI returned an unexpected response format');
+  }
+  
   return data.choices[0].message.content;
 }
 

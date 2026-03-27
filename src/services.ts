@@ -104,20 +104,3 @@ export async function getAllBoxes(): Promise<Box[]> {
   });
 }
 
-export async function searchBoxes(searchTerm: string): Promise<Box[]> {
-  // Get all boxes and filter client-side (Firestore doesn't support full-text search without extensions)
-  const boxes = await getAllBoxes();
-  const lowerSearch = searchTerm.toLowerCase();
-  
-  return boxes.filter((box) =>
-    box.aiDescription.toLowerCase().includes(lowerSearch) ||
-    box.customLabel?.toLowerCase().includes(lowerSearch) ||
-    box.room?.toLowerCase().includes(lowerSearch) ||
-    box.boxNumber.toString().includes(lowerSearch)
-  );
-}
-
-export async function getNextBoxNumber(): Promise<number> {
-  const boxes = await getAllBoxes();
-  return boxes.length > 0 ? Math.max(...boxes.map(b => b.boxNumber)) + 1 : 1;
-}

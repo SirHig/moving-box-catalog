@@ -32,8 +32,18 @@ export default function BoxDetailModal({ box, onClose, onUpdate, onDelete }: Box
     setEditingLabel(false);
   };
 
+  const handleCancelLabel = () => {
+    setLabelDraft(box.customLabel || '');
+    setEditingLabel(false);
+  };
+
   const handleSaveRoom = () => {
     onUpdate(box.id, { room: roomDraft });
+    setEditingRoom(false);
+  };
+
+  const handleCancelRoom = () => {
+    setRoomDraft(box.room || '');
     setEditingRoom(false);
   };
 
@@ -125,7 +135,7 @@ export default function BoxDetailModal({ box, onClose, onUpdate, onDelete }: Box
                     autoFocus
                   />
                   <button onClick={handleSaveLabel} className="btn-primary btn-small">Save</button>
-                  <button onClick={() => setEditingLabel(false)} className="btn-secondary btn-small">Cancel</button>
+                  <button onClick={handleCancelLabel} className="btn-secondary btn-small">Cancel</button>
                 </div>
               ) : (
                 <div className="field-display">
@@ -147,7 +157,7 @@ export default function BoxDetailModal({ box, onClose, onUpdate, onDelete }: Box
                     autoFocus
                   />
                   <button onClick={handleSaveRoom} className="btn-primary btn-small">Save</button>
-                  <button onClick={() => setEditingRoom(false)} className="btn-secondary btn-small">Cancel</button>
+                  <button onClick={handleCancelRoom} className="btn-secondary btn-small">Cancel</button>
                 </div>
               ) : (
                 <div className="field-display">

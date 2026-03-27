@@ -1,13 +1,16 @@
 import { useState, useRef } from 'react';
 
 interface CameraCaptureProps {
-  onCapture: (imageDataUrl: string, blob: Blob) => void;
+  onCapture: (imageDataUrl: string, blob: Blob, room: string) => void;
   onCancel: () => void;
+  availableRooms: string[];
 }
 
-export default function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
+export default function CameraCapture({ onCapture, onCancel, availableRooms }: CameraCaptureProps) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
+  const [room, setRoom] = useState('');
+  const [customRoom, setCustomRoom] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,7 +28,7 @@ export default function CameraCapture({ onCapture, onCancel }: CameraCaptureProp
 
   const handleConfirm = () => {
     if (!capturedImage || !capturedFile) return;
-    onCapture(capturedImage, capturedFile);
+    onCapture(capturedImage, capturedFile, room === '__new__' ? customRoom : room);
   };
 
   const handleRetake = () => {
@@ -64,6 +67,44 @@ export default function CameraCapture({ onCapture, onCancel }: CameraCaptureProp
       ) : (
         <div className="camera-preview">
           <img src={capturedImage} alt="Captured box contents" />
+          <div className="room-picker">
+            <label htmlFor="room-input">Room / Location</label>
+            {availableRooms.length > 0 ? (
+              <>
+                <select
+                  id="room-input"
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  className="room-select"
+                >
+                  <option value="">— Skip —</option>
+                  {availableRooms.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                  <option value="__new__">+ New room…</option>
+                </select>
+                {room === '__new__' && (
+                  <input
+                    type="text"
+                    value={customRoom}
+                    onChange={(e) => setCustomRoom(e.target.value)}
+                    placeholder="e.g. Office, Garage, Hobby Room…"
+                    className="search-input room-custom-input"
+                    autoFocus
+                  />
+                )}
+              </>
+            ) : (
+              <input
+                id="room-input"
+                type="text"
+                value={room}
+                onChange={(e) => setRoom(e.target.value)}
+                placeholder="e.g. Office, Garage, Hobby Room…"
+                className="search-input"
+              />
+            )}
+          </div>
           <div className="camera-actions">
             <button onClick={handleRetake} className="btn-secondary">
               Retake

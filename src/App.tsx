@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import CameraCapture from './CameraCapture';
 import BoxListItem from './BoxListItem';
 import BoxDetailModal from './BoxDetailModal';
@@ -17,7 +17,6 @@ import './App.css';
 
 function App() {
   const [boxes, setBoxes] = useState<Box[]>([]);
-  const [filteredBoxes, setFilteredBoxes] = useState<Box[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showLabelGenerator, setShowLabelGenerator] = useState(false);
@@ -32,8 +31,28 @@ function App() {
     loadBoxes();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
+  const availableRooms = useMemo(() => {
+    const rooms = boxes.map((b) => b.room).filter(Boolean) as string[];
+    return [...new Set(rooms)].sort();
+  }, [boxes]);
+
+  const filteredBoxes = useMemo(() => {
+    let filtered = boxes;
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter((box) =>
+        box.aiDescription.toLowerCase().includes(lowerSearch) ||
+        box.customLabel?.toLowerCase().includes(lowerSearch) ||
+        box.room?.toLowerCase().includes(lowerSearch) ||
+        box.boxNumber.toString().includes(lowerSearch)
+      );
+    }
+    if (filter === 'fragile') {
+      filtered = filtered.filter((box) => box.isFragile);
+    } else if (filter === 'priority') {
+      filtered = filtered.filter((box) => box.isPriority);
+    }
+    return filtered;
   }, [boxes, searchTerm, filter]);
 
   const loadBoxes = async () => {
@@ -50,37 +69,13 @@ function App() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...boxes];
-
-    // Apply search
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      filtered = filtered.filter((box) =>
-        box.aiDescription.toLowerCase().includes(lowerSearch) ||
-        box.customLabel?.toLowerCase().includes(lowerSearch) ||
-        box.room?.toLowerCase().includes(lowerSearch) ||
-        box.boxNumber.toString().includes(lowerSearch)
-      );
-    }
-
-    // Apply filter
-    if (filter === 'fragile') {
-      filtered = filtered.filter((box) => box.isFragile);
-    } else if (filter === 'priority') {
-      filtered = filtered.filter((box) => box.isPriority);
-    }
-
-    setFilteredBoxes(filtered);
-  };
-
   const handleQRScan = (boxNumber: number) => {
     setCurrentBoxNumber(boxNumber);
     setShowScanner(false);
     setShowCamera(true);
   };
 
-  const handleCapture = async (imageDataUrl: string, blob: Blob) => {
+  const handleCapture = async (imageDataUrl: string, blob: Blob, room: string) => {
     if (!currentBoxNumber) {
       setError('No box number selected');
       return;
@@ -100,20 +95,19 @@ function App() {
       setShowCamera(false);
       setError(null);
 
-      // Compress image before upload
       const compressedBlob = await compressImage(blob);
 
-      // Upload image to Firebase Storage
-      const imageUrl = await uploadImage(compressedBlob, currentBoxNumber);
-
-      // Analyze image with OpenAI (use original for better AI analysis)
-      const aiDescription = await analyzeImage(imageDataUrl);
+      const [imageUrl, aiDescription] = await Promise.all([
+        uploadImage(compressedBlob, currentBoxNumber),
+        analyzeImage(imageDataUrl),
+      ]);
 
       // Save to Firestore
       await addBox({
         boxNumber: currentBoxNumber,
         imageUrl,
         aiDescription,
+        room: room || undefined,
         isFragile: false,
         isPriority: false,
       });
@@ -258,6 +252,7 @@ function App() {
               setShowCamera(false);
               setCurrentBoxNumber(null);
             }}
+            availableRooms={availableRooms}
           />
         </div>
       )}

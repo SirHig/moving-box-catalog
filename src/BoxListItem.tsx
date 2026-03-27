@@ -5,12 +5,12 @@ interface BoxListItemProps {
   onClick: () => void;
 }
 
+function getSummary(text: string, maxLength: number = 100) {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength).trim() + '...';
+}
+
 export default function BoxListItem({ box, onClick }: BoxListItemProps) {
-  // Truncate description to first 100 characters
-  const getSummary = (text: string, maxLength: number = 100) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength).trim() + '...';
-  };
 
   return (
     <div className="box-list-item" onClick={onClick}>
